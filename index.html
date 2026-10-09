@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>解锁夺宝机关 · 抽王者荣耀好礼</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body { display: flex; align-items: center; justify-content: center; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+
+  /* ============ 主舞台：1080x497 横屏比例 ============ */
+  #stage {
+    position: relative;
+    width: min(100vw, 217.2vh);
+    aspect-ratio: 1080 / 497;
+    user-select: none;
+  }
+  .bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+  #bg2 { opacity: 0; }
+  body.filled #bg2 { opacity: 1; }
+
+  /* ============ 口令输入区 ============ */
+  #codeInput {
+    position: absolute;
+    left: 39%;  width: 22%;
+    top: 68.6%; height: 7.6%;
+    background: transparent;
+    border: none; outline: none;
+    text-align: center;
+    color: #d9efe9;
+    caret-color: #e8fffa;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: min(1.75vw, 3.8vh);
+    font-weight: bold;                   /* 粗体，匹配原图风格 */
+    letter-spacing: 0.32em;
+    text-indent: 0.32em;
+    text-shadow: 0 0 10px rgba(140, 230, 210, 0.45);
+    z-index: 5;
+  }
+  #codeInput::placeholder { color: transparent; }
+
+  /* ============ 立即开奖 按钮点击区 ============ */
+  #drawBtn {
+    position: absolute;
+    left: 36.5%;  width: 27%;
+    top: 78%;     height: 13.5%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 5;
+  }
+  #drawBtn:active { transform: scale(0.97); }
+
+  /* ============ 奖励弹窗（邮箱抠图版，更小更真实） ============ */
+  #popupMask {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  #popupMask.show { display: flex; }
+
+  #popup {
+    position: relative;
+    width: min(66vw, 112vh);             /* 比原来缩小 */
+    aspect-ratio: 1100 / 650;            /* JS会按图片真实比例覆盖 */
+    animation: pop 0.32s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+  @keyframes pop {
+    from { transform: scale(0.82); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+  #mailImg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  /* 奖励区：蓝色信封内部 */
+  #rewardBox {
+    position: absolute;
+    left: 10%;  right: 10%;
+    top: 42%;   bottom: 8%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4%;
+    z-index: 2;
+  }
+  .reward-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(10, 20, 60, 0.6);
+  }
+  .reward-icon { font-size: min(4vw, 8.6vh); line-height: 1.1; }
+  .reward-name {
+    font-size: min(1.7vw, 3.6vh);
+    font-weight: bold;
+    color: #ffe9a8;
+    letter-spacing: 0.06em;
+  }
+  .reward-row { display: flex; gap: 12%; align-items: flex-start; }
+
+  /* 确认按钮：透明点击区，盖在图里自带的完整金色按钮上 */
+  #closeBtn {
+    position: absolute;
+    left: 50%; bottom: 2%;
+    transform: translateX(-50%);
+    width: 26%; height: 9%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 3;
+  }
+</style>
+</head>
+<body>
+
+  <div id="stage">
+    <img class="bg" id="bg1" src="微信图片_20260921143700_866_36.png" alt="">
+    <img class="bg" id="bg2" src="微信图片_20260921151439_869_36.jpg" alt="">
+
+    <input id="codeInput" type="text" maxlength="10" autocomplete="off" spellcheck="false" placeholder="　">
+    <button id="drawBtn" aria-label="立即开奖"></button>
+  </div>
+
+  <!-- 奖励弹窗 -->
+  <div id="popupMask">
+    <div id="popup">
+      <img id="mailImg" src="清晰版本.png" alt="">
+      <div id="rewardBox"></div>
+      <button id="closeBtn" aria-label="确认"></button>
+    </div>
+  </div>
+
+<script>
+  /* ==================================================
+     奖励配置区 —— 之后换奖励只改这里
+     icon 可以填 emoji，也可以填图片路径（如 "skin.png"）
+     layout: "column" 竖排大图  /  "row" 横排一排
+     ================================================== */
+  const REWARDS = {
+    layout: "row",
+    items: [],        /* 奖励已烤在新邮件图里，置空不叠加；以后要代码叠奖励再填 */
+  };
+
+  const input  = document.getElementById("codeInput");
+  const mask   = document.getElementById("popupMask");
+  const box    = document.getElementById("rewardBox");
+  const popup  = document.getElementById("popup");
+  const mailImg = document.getElementById("mailImg");
+
+  /* 弹窗按抠图真实比例显示 */
+  mailImg.addEventListener("load", function () {
+    popup.style.aspectRatio = this.naturalWidth + " / " + this.naturalHeight;
+    popup.style.maxWidth = this.naturalWidth + "px";   /* 不超过图片原生尺寸，避免拉伸导致文字模糊 */
+  });
+
+  /* 输入内容变化 → 切换背景状态 */
+  input.addEventListener("input", () => {
+    document.body.classList.toggle("filled", input.value.length > 0);
+  });
+
+  /* 渲染奖励 */
+  function renderRewards() {
+    box.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "reward-row";
+    if (REWARDS.layout === "row") box.appendChild(wrap);
+    REWARDS.items.forEach(r => {
+      const item = document.createElement("div");
+      item.className = "reward-item";
+      const isImg = /\.(png|jpe?g|gif|webp)$/i.test(r.icon || "");
+      item.innerHTML = isImg
+        ? `<img class="reward-icon" src="${r.icon}" alt="">`
+        : `<div class="reward-icon">${r.icon || ""}</div>`;
+      item.insertAdjacentHTML("beforeend", `<div class="reward-name">${r.name}</div>`);
+      (REWARDS.layout === "row" ? wrap : box).appendChild(item);
+    });
+  }
+  renderRewards();
+
+  /* 立即开奖 → 弹出奖励弹窗 */
+  document.getElementById("drawBtn").addEventListener("click", () => {
+    mask.classList.add("show");
+  });
+
+  /* 关闭弹窗 → 清空口令回到初始状态 */
+  document.getElementById("closeBtn").addEventListener("click", () => {
+    mask.classList.remove("show");
+    input.value = "";
+    document.body.classList.remove("filled");
+  });
+</script>
+</body>
+</html>
